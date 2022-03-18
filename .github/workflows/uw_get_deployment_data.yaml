@@ -16,10 +16,6 @@ on:
         description: "ID for namespace and helm release name"
         required: true
         type: string
-      converge_result:
-        required: true
-        description: "Converge result"
-        type: string
       
     secrets:
       KUBECONFIG_DATA: 

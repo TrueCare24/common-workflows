@@ -1,0 +1,69 @@
+name: "[WORKFLOW CALL] Get uw data"
+
+on:
+  workflow_call:
+    
+    outputs:
+      graphql_password: 
+        value: ${{ steps.graphql-password.outputs.response }}
+      dr_url: 
+        value: ${{ steps.dr-url.outputs.response }}
+      idp_url: 
+        value: ${{ steps.idp-url.outputs.response }}
+    
+    inputs:
+      deploy_id:
+        description: "ID for namespace and helm release name"
+        required: true
+        type: string
+      converge_result:
+        required: true
+        description: "Converge result"
+        type: string
+      
+    secrets:
+      KUBECONFIG_DATA: 
+        required: true      
+
+env:
+  NS: uw-${{ inputs.deploy_id }}
+
+jobs:
+  uw_get_deployment_data:
+    name: "Get uw deployment data"
+    runs-on: ubuntu-latest
+    outputs: 
+      graphql_password: ${{ steps.graphql-password.outputs.response }}
+      dr_url: ${{ steps.dr-url.outputs.response }}
+      idp_url: ${{ steps.idp-url.outputs.response }}
+    steps:
+
+    - name: "Base64 kubeconfig"
+      run: |
+        echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
+        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
+        echo 'EOF' >> $GITHUB_ENV
+
+    - name: "Get graphql password"
+      id: graphql-password
+      uses: koslib/helm-eks-action@master
+      env:
+        KUBE_CONFIG_DATA: ${{ env.kubeconfig_base64_data }}
+      with:
+        command: kubectl get secret -n ${{ env.NS }} graphql-password -o jsonpath='{.data.HASURA_GRAPHQL_ADMIN_SECRET}' | base64 -d
+
+    - name: "Get DR url"
+      id: dr-url
+      uses: koslib/helm-eks-action@master
+      env:
+        KUBE_CONFIG_DATA: ${{ env.kubeconfig_base64_data }}
+      with:
+        command: kubectl get ingress graphql-engine -n ${{ env.NS }} -o jsonpath='{.spec.rules[].host}'
+
+    - name: "Get IDP url"
+      id: idp-url
+      uses: koslib/helm-eks-action@master
+      env:
+        KUBE_CONFIG_DATA: ${{ env.kubeconfig_base64_data }}
+      with:
+        command: kubectl get ingress idp -n ${{ env.NS }} -o jsonpath='{.spec.rules[].host}'

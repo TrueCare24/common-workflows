@@ -5,11 +5,11 @@ on:
     
     outputs:
       graphql_password: 
-        value: ${{ steps.graphql-password.outputs.response }}
+        value: ${{ jobs.uw_get_deployment_data.outputs.graphql_password }}
       dr_url: 
-        value: ${{ steps.dr-url.outputs.response }}
+        value: ${{ jobs.uw_get_deployment_data.outputs.dr_url }}
       idp_url: 
-        value: ${{ steps.idp-url.outputs.response }}
+        value: ${{ jobs.uw_get_deployment_data.outputs.idp_url }}
     
     inputs:
       deploy_id:

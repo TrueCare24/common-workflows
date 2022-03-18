@@ -1,0 +1,57 @@
+name: "[WORKFLOW CALL] PR comment with condition"
+
+on:
+  workflow_call:
+    
+    inputs:
+      comment_success:
+        description: "Comment to post when success"
+        required: true
+        type: string  
+      comment_failure:
+        description: "Comment to post when failure"
+        required: true
+        type: string  
+      job_result:
+        required: true
+        description: "Job result"
+        type: string
+      
+    secrets:
+      REPOS_GITHUB_TOKEN:
+        required: true
+
+jobs:
+  common_pr_comment_condition:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: "PR comment if success"
+      if: "${{ inputs.job_result == 'success' }}"
+      uses: actions/github-script@v5
+      with:
+        github-token: ${{ secrets.REPOS_GITHUB_TOKEN }}
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: ${{ inputs.comment_success }}
+          })
+
+    - name: "PR comment if failure"
+      if: "${{ inputs.job_result != 'success' }}"
+      uses: actions/github-script@v5
+      with:
+        github-token: ${{ secrets.REPOS_GITHUB_TOKEN }}
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: ${{ inputs.comment_failure }}
+          })
+
+    - name: "Force job to fail"
+      if: "${{ inputs.job_result == 'failure' }}"
+      run: exit 1      

@@ -1,4 +1,4 @@
-name: "[WORKFLOW CALL] Setup variables v1"
+name: "[WORKFLOW CALL] Setup variables v2"
 
 on:
   workflow_call:
@@ -16,8 +16,6 @@ on:
       values_id:
         description: "Helm values file name ID in format values-${values_id}.yaml"
         value: ${{ jobs.common_setup_vars.outputs.values_id }}
-      production_like:
-        value: ${{ jobs.common_setup_vars.outputs.production_like }}
 
     inputs:
       env_id:     
@@ -76,15 +74,14 @@ jobs:
 
         if [[ -z "$values_id" ]]; then
           case "$env_id" in
-            prod) values_id=prod ;;
-            stage) if [[ "$deploy_id" != "stage" ]]; then values_id=stage-all; else values_id=stage; fi ;;
-            dev) values_id=dev-all ;;
+            prod)  values_id=prod ;;
+            stage) values_id=stage
+                   [[ "$deploy_id" != "stage" ]] && values_id+="-auto" ;;
+            dev)   values_id=dev
+                   [[ "production_like" == "true" ]] && values_id+="-prod"
+            ;;
           esac
         fi
-
-        case "$env_id" in
-          stage|prod) production_like=true ;;
-        esac
 
         env_id_upper=${env_id^^}
         deploy_id=$(echo "$deploy_id" | iconv -t ascii//TRANSLIT | sed -r s/[^a-zA-Z0-9]+/-/g | sed -r s/^-+\|-+$//g | tr A-Z a-z)
@@ -100,9 +97,6 @@ jobs:
         
         echo "::set-output name=values_id::${values_id}"
         echo "values_id=${values_id}"
-
-        echo "::set-output name=production_like::${production_like}"
-        echo "production_like=${production_like}"
       env:
         env_id: ${{ inputs.env_id }}
         deploy_id: ${{ inputs.deploy_id }}

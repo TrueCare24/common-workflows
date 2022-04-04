@@ -1,4 +1,4 @@
-name: "[WORKFLOW CALL] PR comment with condition v1"
+name: "[WORKFLOW CALL] Issue comment with condition v1"
 
 on:
   workflow_call:
@@ -22,11 +22,11 @@ on:
         required: true
 
 jobs:
-  common_pr_comment_condition:
+  common_issue_comment_condition:
     runs-on: ubuntu-latest
     steps:
 
-    - name: "PR comment if success"
+    - name: "Issue comment if success"
       if: "${{ inputs.job_result == 'success' }}"
       uses: actions/github-script@v5
       with:
@@ -39,7 +39,7 @@ jobs:
             body: ${{ inputs.comment_success }}
           })
 
-    - name: "PR comment if failure"
+    - name: "Issue comment if failure"
       if: "${{ inputs.job_result != 'success' }}"
       uses: actions/github-script@v5
       with:

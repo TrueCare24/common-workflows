@@ -120,15 +120,9 @@ jobs:
 
     - name: "Preparing helm environment"
       run: |
-        echo -e "\n#### Update helm dependencies"
-        for d in $(ls -d _common/*) "$HELM_DIR"; do
-          echo "#### Update helm dependencies for '$d'"
-          pushd $(pwd) && cd $d
-          
-          [[ -d charts ]] && rm -rf charts/*
-          helm dependencies update
-          popd
-        done
+        echo -e "\n#### Update helm dependencies"        
+        [[ -d charts ]] && rm -rf charts/*
+        helm dependencies update $HELM_DIR
 
         echo -e "\n#### Install yq"
         curl -sLo yq https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 && chmod +x yq

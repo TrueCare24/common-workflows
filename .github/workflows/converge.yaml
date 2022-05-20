@@ -1,0 +1,163 @@
+name: "[WORKFLOW CALL] Converge project v1"
+
+on:
+  workflow_call:
+    inputs:
+      project_id:
+        description: "Application name"
+        required: true
+        type: string
+      env_id:
+        description: "Environment type like dev, stage or prod"
+        required: true
+        type: string
+      deploy_id:
+        description: "ID for namespace and helm release name"
+        required: true
+        type: string        
+      debug:
+        required: false
+        type: boolean
+        default: false
+
+    secrets:
+      HARBOR_USERNAME: 
+        required: true
+      HARBOR_PASSWORD: 
+        required: true
+      HARBOR_HOST: 
+        required: true
+      KUBECONFIG_DATA: 
+        required: true
+      SECRETS_CONTEXT:
+        required: true
+
+env:
+  WERF_LOG_DEBUG: ${{ inputs.debug }}
+  WERF_REPO: ${{ format ('{0}/images/{1}', secrets.HARBOR_HOST, inputs.project_id) }}
+  WERF_REPO_CONTAINER_REGISTRY: harbor
+  WERF_DIR: ${{ format ('{0}/werf' , inputs.project_id) }}
+  WERF_TIMEOUT: 900
+  
+jobs:
+  converge:
+    name: "Converge project"
+    runs-on: ubuntu-latest
+    steps:      
+
+    - name: "Inputs"
+      run: |
+        echo "project_id=${{ inputs.project_id }}"
+        echo "env_id=${{ inputs.env_id }}"
+        echo "deploy_id=${{ inputs.deploy_id }}"
+      shell: bash
+
+    - name: "Checkout code"
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: "Login to Harbor"
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ secrets.HARBOR_HOST }}
+        username: ${{ secrets.HARBOR_USERNAME }}
+        password: ${{ secrets.HARBOR_PASSWORD }}
+    
+    - name: "Base64 kubeconfig"
+      run: |
+        echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
+        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
+        echo 'EOF' >> $GITHUB_ENV
+
+    - name: "Github values"
+      run: |
+        if [[ -f "$WERF_VALUES_GITHUB" ]] && [[ -f "$GITHUB_SECRETS_LIST" ]]; then 
+          PREFIX=${env_id^^}
+
+          echo "github:" > "$WERF_VALUES_GITHUB"
+          for secret in $(cat "$GITHUB_SECRETS_LIST"); do
+            for secret_var in $secret $PREFIX_$secret; do
+              value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg secret "$secret_var" '.[$secret]')
+              if [[ "$value" != "null" ]]; then break; fi
+            done
+
+            if [[ "$value" == "null" ]]; then
+              echo "Cannot find any secret '$secret' or '$PREFIX_$secret'"
+              exit 1
+            fi
+            
+            key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${secret,,}")
+            echo "  ${key}: ${value}" >> "$WERF_VALUES_GITHUB"
+          done
+        else 
+          echo "Skip github values"
+          echo "#" > "$WERF_VALUES_GITHUB"
+        fi
+      shell: bash
+      env:
+        WERF_VALUES_GITHUB: ${{ format ('{0}/helm/values-github.yaml', inputs.project_id) }}
+        GITHUB_SECRETS_LIST: ${{ format ('{0}/werf/github.secrets', inputs.project_id) }}
+        SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}
+        env_id: ${{ inputs.env_id }}
+
+    - name: "Runtime values"
+      run: |
+        if [[ -f "$WERF_VALUES_RUNTIME" ]]; then
+          kubeconfig=$(mktemp)
+          echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
+          kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $WERF_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" | base64 -d > "$WERF_VALUES_RUNTIME"
+        else 
+          echo "Skip runtime values"
+          echo "#" > "$WERF_VALUES_RUNTIME"
+        fi
+      shell: bash
+      env:
+        WERF_VALUES_RUNTIME: ${{ format ('{0}/helm/values-runtime.yaml', inputs.project_id) }}
+        NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id) }}
+        KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+        WERF_VALUES_SECRET: werf-values
+
+    - name: "Preparing helm environment"
+      run: |
+        echo -e "\n#### Update helm dependencies"
+        for d in $(ls -d _common/*) "$HELM_DIR"; do
+          echo "#### Update helm dependencies for '$d'"
+          pushd $(pwd) && cd $d
+          
+          [[ -d charts ]] && rm -rf charts/*
+          helm dependencies update
+          popd
+        done
+
+        echo -e "\n#### Install yq"
+        curl -sLo yq https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 && chmod +x yq
+
+        names=($(yq e '.dependencies[].name' $HELM_DIR/Chart.yaml))
+        repos=($(yq e '.dependencies[].repository' $HELM_DIR/Chart.yaml))
+
+        echo "#### Add helm repos"
+        i=-1
+        while [[ $((++i)) -lt ${#names[@]} ]]; do
+          if [[ ${repos[$i]} =~ http* ]]; then
+            echo -e "\n#### Add repo ${names[$i]} ${repos[$i]}"
+            helm repo add ${names[$i]} ${repos[$i]}
+          fi
+        done
+
+        echo -e "\n#### Helm repo list"
+        helm repo list || true
+      shell: bash
+      env: 
+        HELM_DIR: ${{ format ('{0}/helm', inputs.project_id ) }}
+
+    - name: "Converge project"
+      uses: werf/actions/converge@v1.2
+      env: 
+        WERF_VALUES_ENV: ${{ format ('{0}/helm/values-{1}.yaml', inputs.project_id, inputs.env_id) }}
+        WERF_VALUES_RUNTIME: ${{ format ('{0}/helm/values-runtime.yaml', inputs.project_id) }}
+        WERF_VALUES_GITHUB: ${{ format ('{0}/helm/values-github.yaml', inputs.project_id) }}
+      with: 
+        kube-config-base64-data: ${{ env.kubeconfig_base64_data }}
+        env: ${{ inputs.deploy_id }}
+        version: v1.2.80

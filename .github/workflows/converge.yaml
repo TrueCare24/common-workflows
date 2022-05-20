@@ -31,6 +31,8 @@ on:
         required: true
       SECRETS_CONTEXT:
         required: true
+      REPOS_GITHUB_TOKEN:
+        required: false
 
 env:
   WERF_LOG_DEBUG: ${{ inputs.debug }}
@@ -120,6 +122,11 @@ jobs:
 
     - name: "Preparing helm environment"
       run: |
+        if [[ -n "$GITHUB_TOKEN" ]]; then 
+          echo -e "\n#### Add tc24 chart repo"
+          helm repo add tc24-charts https://$GITHUB_TOKEN@raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
+        fi
+
         echo -e "\n#### Update helm dependencies"        
         [[ -d charts ]] && rm -rf charts/*
         helm dependencies update $HELM_DIR
@@ -144,6 +151,7 @@ jobs:
       shell: bash
       env: 
         HELM_DIR: ${{ format ('{0}/helm', inputs.project_id ) }}
+        GITHUB_TOKEN: ${{ secrets.REPOS_GITHUB_TOKEN }}
 
     - name: "Converge project"
       uses: werf/actions/converge@v1.2

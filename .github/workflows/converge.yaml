@@ -40,7 +40,7 @@ env:
   WERF_TIMEOUT: 900
   
 jobs:
-  converge:
+  common_converge:
     name: "Converge project"
     runs-on: ubuntu-latest
     steps:      

@@ -33,7 +33,7 @@ env:
   WERF_DIR: ${{ format ('{0}/werf' , inputs.project_id) }}
   
 jobs:
-  dismiss:
+  common_dismiss:
     name: "Dismiss project"
     runs-on: ubuntu-latest
     steps:

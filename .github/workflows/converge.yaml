@@ -141,9 +141,6 @@ jobs:
             key=$key value=$value yq -i '.github.[env(key)] = strenv(value)' "$WERF_VALUES_GITHUB"
           done
         fi
-  
-        echo -e "\n#### $WERF_VALUES_GITHUB:"
-        cat $WERF_VALUES_GITHUB
       shell: bash
       env:
         SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}

@@ -136,10 +136,14 @@ jobs:
               exit 1
             fi
             
+            echo "Import '$var'"
             key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${var,,}")
             echo "  ${key}: ${value}" >> "$WERF_VALUES_GITHUB"
           done
         fi
+
+        echo -e "\n#### $WERF_VALUES_GITHUB:"
+        cat $WERF_VALUES_GITHUB
       shell: bash
       env:
         SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}

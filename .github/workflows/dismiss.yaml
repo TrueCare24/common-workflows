@@ -6,7 +6,11 @@ on:
       project_id:
         description: "Application name"
         required: true
-        type: string    
+        type: string
+      project_path:
+        description: "Path to helm and werf directories under {{ project_id }}"
+        required: false
+        type: string        
       deploy_id:
         description: "ID for namespace and helm release name"
         required: true

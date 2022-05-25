@@ -4,8 +4,12 @@ on:
   workflow_call:
     inputs:
       project_id:
-        description: "Application name"
+        description: "Application and directory name"
         required: true
+        type: string
+      project_path:
+        description: "Path to helm and werf directories under {{ project_id }}"
+        required: false
         type: string
       env_id:
         description: "Environment type like dev, stage or prod"
@@ -14,7 +18,19 @@ on:
       deploy_id:
         description: "ID for namespace and helm release name"
         required: true
-        type: string        
+        type: string
+      values_id:
+        description: "Helm values file name ID in format values-${values_id}.yaml"
+        required: false
+        type: string
+      values:
+        description: "Helm values from github as yaml"
+        required: false
+        type: string
+      branch_id:
+        description: "Branch name for checkout"
+        required: false
+        type: string
       debug:
         required: false
         type: boolean
@@ -38,7 +54,12 @@ env:
   WERF_LOG_DEBUG: ${{ inputs.debug }}
   WERF_REPO: ${{ format ('{0}/images/{1}', secrets.HARBOR_HOST, inputs.project_id) }}
   WERF_REPO_CONTAINER_REGISTRY: harbor
-  WERF_DIR: ${{ format ('{0}/werf' , inputs.project_id) }}
+  HELM_DIR: ${{ format ('{0}/{1}/helm', inputs.project_id, inputs.project_path) }}
+  WERF_DIR: ${{ format ('{0}/{1}/werf', inputs.project_id, inputs.project_path) }}
+  WERF_VALUES_GITHUB: ${{ format ('{0}/{1}/helm/values-github.yaml', inputs.project_id, inputs.project_path) }}
+  WERF_VALUES_RUNTIME: ${{ format ('{0}/{1}/helm/values-runtime.yaml', inputs.project_id, inputs.project_path) }}
+  GITHUB_SECRETS_LIST: ${{ format ('{0}/{1}/github.secrets', inputs.project_id, inputs.project_path) }}
+  CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
   WERF_TIMEOUT: 900
   
 jobs:
@@ -49,13 +70,19 @@ jobs:
 
     - name: "Inputs"
       run: |
-        echo "project_id=${{ inputs.project_id }}"
-        echo "env_id=${{ inputs.env_id }}"
-        echo "deploy_id=${{ inputs.deploy_id }}"
+        echo "${{ toJSON(inputs) }}"
       shell: bash
+
+    - name: "Checkout code with ref ${{ inputs.branch_id }}"
+      uses: actions/checkout@v2
+      if: ${{ inputs.branch_id != '' }}
+      with:
+        fetch-depth: 0
+        ref: ${{ inputs.branch_id }}
 
     - name: "Checkout code"
       uses: actions/checkout@v2
+      if: ${{ inputs.branch_id == '' }}
       with:
         fetch-depth: 0
 
@@ -72,15 +99,48 @@ jobs:
         echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
         echo 'EOF' >> $GITHUB_ENV
 
+    - name: "Env values"
+      run: |
+        id=$env_id
+        if [[ -n "$values_id" ]]; then
+          id=$values_id
+        fi
+        WERF_VALUES_ENV=$HELM_DIR/values-$id.yaml
+        echo "WERF_VALUES_ENV=$WERF_VALUES_ENV" | tee -a $GITHUB_ENV
+
+        if [[ ! -f $WERF_VALUES_ENV ]]; then
+          echo "File '$WERF_VALUES_ENV' not found"
+          exit 1
+        fi
+      shell: bash
+      env:
+        env_id: ${{ inputs.env_id }}
+        values_id: ${{ inputs.values_id }}
+
     - name: "Github values"
       run: |
-        if [[ -f "$WERF_VALUES_GITHUB" ]] && [[ -f "$GITHUB_SECRETS_LIST" ]]; then 
+        if [[ -n "${values_github}" ]]; then
+          echo -e "\n#### Install yq"
+          curl -sLo yq https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 && chmod +x yq
+
+          echo -e "\n#### Import github values"
+          echo "$values_github" | yq -o json | jq '{ github: .}' | yq -P > "$WERF_VALUES_GITHUB"
+
+          echo -e "\n#### Export github variables"
+          for var in "$values_github"; do 
+            echo "$var" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
+          done
+        else
+          echo "github:" > "$WERF_VALUES_GITHUB"
+        fi
+
+        if [[ -f "$GITHUB_SECRETS_LIST" ]]; then 
+          echo -e "\n#### Import secret values"
           PREFIX=${env_id^^}
 
-          echo "github:" > "$WERF_VALUES_GITHUB"
           for secret in $(cat "$GITHUB_SECRETS_LIST"); do
-            for secret_var in $secret $PREFIX_$secret; do
-              value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg secret "$secret_var" '.[$secret]')
+            for var in $secret $PREFIX_$secret; do
+              value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg secret "$var" '.[$secret]')
               if [[ "$value" != "null" ]]; then break; fi
             done
 
@@ -92,16 +152,12 @@ jobs:
             key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${secret,,}")
             echo "  ${key}: ${value}" >> "$WERF_VALUES_GITHUB"
           done
-        else 
-          echo "Skip github values"
-          echo "#" > "$WERF_VALUES_GITHUB"
         fi
       shell: bash
       env:
-        WERF_VALUES_GITHUB: ${{ format ('{0}/helm/values-github.yaml', inputs.project_id) }}
-        GITHUB_SECRETS_LIST: ${{ format ('{0}/werf/github.secrets', inputs.project_id) }}
         SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}
         env_id: ${{ inputs.env_id }}
+        values_github: ${{ inputs.values }}
 
     - name: "Runtime values"
       run: |
@@ -115,8 +171,7 @@ jobs:
         fi
       shell: bash
       env:
-        WERF_VALUES_RUNTIME: ${{ format ('{0}/helm/values-runtime.yaml', inputs.project_id) }}
-        NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id) }}
+        NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id, inputs.project_path) }}
         KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
         WERF_VALUES_SECRET: werf-values
 
@@ -124,7 +179,7 @@ jobs:
       run: |
         if [[ -n "$GITHUB_TOKEN" ]]; then 
           echo -e "\n#### Add tc24 chart repo"
-          helm repo add tc24-charts https://$GITHUB_TOKEN@raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
+          helm repo add tc24-charts https://$GITHUB_TOKEN@$CHART_REPO
         fi
 
         echo -e "\n#### Update helm dependencies"        
@@ -150,15 +205,12 @@ jobs:
         helm repo list || true
       shell: bash
       env: 
-        HELM_DIR: ${{ format ('{0}/helm', inputs.project_id ) }}
         GITHUB_TOKEN: ${{ secrets.REPOS_GITHUB_TOKEN }}
 
     - name: "Converge project"
       uses: werf/actions/converge@v1.2
-      env: 
-        WERF_VALUES_ENV: ${{ format ('{0}/helm/values-{1}.yaml', inputs.project_id, inputs.env_id) }}
-        WERF_VALUES_RUNTIME: ${{ format ('{0}/helm/values-runtime.yaml', inputs.project_id) }}
-        WERF_VALUES_GITHUB: ${{ format ('{0}/helm/values-github.yaml', inputs.project_id) }}
+      env:
+        github_token: ${{ secrets.REPOS_GITHUB_TOKEN }}        
       with: 
         kube-config-base64-data: ${{ env.kubeconfig_base64_data }}
         env: ${{ inputs.deploy_id }}

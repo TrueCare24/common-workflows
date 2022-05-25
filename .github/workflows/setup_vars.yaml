@@ -37,7 +37,7 @@ on:
         description: "Trigger branch name. Needs for auto setup other variables"
         required: false
         type: string
-        default: ${{ github.ref_name }}        
+        default: ${{ github.ref_name }}
       production_like: 
         required: false
         type: string
@@ -50,9 +50,9 @@ jobs:
     outputs: 
       env_id: ${{ steps.format-id.outputs.env_id }}
       env_id_upper: ${{ steps.format-id.outputs.env_id_upper }}
-      deploy_id: ${{ steps.format-id.outputs.deploy_id }}      
-      values_id: ${{ steps.format-id.outputs.values_id }}   
-      production_like: ${{ steps.format-id.outputs.production_like }}   
+      deploy_id: ${{ steps.format-id.outputs.deploy_id }}
+      values_id: ${{ steps.format-id.outputs.values_id }}
+      production_like: ${{ steps.format-id.outputs.production_like }}
     steps:
     
     - name: "Format IDs"
@@ -87,20 +87,18 @@ jobs:
         deploy_id=$(echo "$deploy_id" | iconv -t ascii//TRANSLIT | sed -r s/[^a-zA-Z0-9]+/-/g | sed -r s/^-+\|-+$//g | tr A-Z a-z)
 
         echo "::set-output name=env_id::${env_id}"
-        echo "env_id=$env_id"
-
         echo "::set-output name=env_id_upper::${env_id_upper}"
-        echo "env_id_upper=$env_id_upper"
-
-        echo "::set-output name=deploy_id::${deploy_id}"
-        echo "deploy_id=${deploy_id}"
-        
+        echo "::set-output name=deploy_id::${deploy_id}"       
         echo "::set-output name=values_id::${values_id}"
-        echo "values_id=${values_id}"
       env:
         env_id: ${{ inputs.env_id }}
         deploy_id: ${{ inputs.deploy_id }}
         values_id: ${{ inputs.values_id }}
         branch_id: ${{ inputs.branch_id }}
         production_like: ${{ inputs.production_like }}
+      shell: bash
+
+    - name: Outputs
+      run: | 
+        echo "${{ toJSON(steps.format-id.outputs) }}"
       shell: bash

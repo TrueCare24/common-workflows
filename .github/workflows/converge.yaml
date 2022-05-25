@@ -137,11 +137,11 @@ jobs:
             fi
             
             echo "Import '$var'"
-            key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${var,,}")
-            echo "  ${key}: ${value}" >> "$WERF_VALUES_GITHUB"
+            key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${secret,,}")
+            key=$key value=$value yq -i '.github.[env(key)] = strenv(value)' "$WERF_VALUES_GITHUB"
           done
         fi
-
+  
         echo -e "\n#### $WERF_VALUES_GITHUB:"
         cat $WERF_VALUES_GITHUB
       shell: bash

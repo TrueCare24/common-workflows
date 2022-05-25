@@ -123,20 +123,20 @@ jobs:
 
         if [[ -f "$GITHUB_SECRETS_LIST" ]]; then 
           echo -e "\n#### Import secret values"
-          PREFIX=${env_id^^}
 
           for secret in $(cat "$GITHUB_SECRETS_LIST"); do
-            for var in $secret $PREFIX_$secret; do
-              value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg secret "$var" '.[$secret]')
+            var=''
+            for var in "$secret" "${env_id^^}_${secret}"; do
+              value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg var "$var" '.[$var]')
               if [[ "$value" != "null" ]]; then break; fi
             done
 
             if [[ "$value" == "null" ]]; then
-              echo "Cannot find any secret '$secret' or '$PREFIX_$secret'"
+              echo "Cannot find any secret '$secret' or '$var'"
               exit 1
             fi
             
-            key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${secret,,}")
+            key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${var,,}")
             echo "  ${key}: ${value}" >> "$WERF_VALUES_GITHUB"
           done
         fi

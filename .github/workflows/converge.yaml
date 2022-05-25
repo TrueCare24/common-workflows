@@ -46,7 +46,7 @@ on:
       KUBECONFIG_DATA: 
         required: true
       SECRETS_CONTEXT:
-        required: true
+        required: false
       REPOS_GITHUB_TOKEN:
         required: false
 

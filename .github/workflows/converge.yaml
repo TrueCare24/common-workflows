@@ -58,7 +58,7 @@ env:
   WERF_DIR: ${{ format ('{0}/{1}/werf', inputs.project_id, inputs.project_path) }}
   WERF_VALUES_GITHUB: ${{ format ('{0}/{1}/helm/values-github.yaml', inputs.project_id, inputs.project_path) }}
   WERF_VALUES_RUNTIME: ${{ format ('{0}/{1}/helm/values-runtime.yaml', inputs.project_id, inputs.project_path) }}
-  GITHUB_SECRETS_LIST: ${{ format ('{0}/{1}/github.secrets', inputs.project_id, inputs.project_path) }}
+  GITHUB_SECRETS_LIST: ${{ format ('{0}/{1}/werf/github.secrets', inputs.project_id, inputs.project_path) }}
   CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
   WERF_TIMEOUT: 900
   
@@ -85,19 +85,6 @@ jobs:
       if: ${{ inputs.branch_id == '' }}
       with:
         fetch-depth: 0
-
-    - name: "Login to Harbor"
-      uses: docker/login-action@v1
-      with:
-        registry: ${{ secrets.HARBOR_HOST }}
-        username: ${{ secrets.HARBOR_USERNAME }}
-        password: ${{ secrets.HARBOR_PASSWORD }}
-    
-    - name: "Base64 kubeconfig"
-      run: |
-        echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
-        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
-        echo 'EOF' >> $GITHUB_ENV
 
     - name: "Env values"
       run: |
@@ -206,6 +193,19 @@ jobs:
       shell: bash
       env: 
         GITHUB_TOKEN: ${{ secrets.REPOS_GITHUB_TOKEN }}
+
+    - name: "Login to Harbor"
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ secrets.HARBOR_HOST }}
+        username: ${{ secrets.HARBOR_USERNAME }}
+        password: ${{ secrets.HARBOR_PASSWORD }}
+    
+    - name: "Base64 kubeconfig"
+      run: |
+        echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
+        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
+        echo 'EOF' >> $GITHUB_ENV
 
     - name: "Converge project"
       uses: werf/actions/converge@v1.2

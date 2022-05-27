@@ -114,11 +114,14 @@ jobs:
           echo "$values_github" | yq -o json | jq '{ github: .}' | yq -P > "$WERF_VALUES_GITHUB"
 
           echo -e "\n#### Export github variables"
-          for var in "$values_github"; do 
-            # echo "$var" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
+          for var in "$values_github"; do
+            key=${var%%: *}
+            value=${var#*: }
 
-            echo "${var%%: *}<<EOF" >> $GITHUB_ENV
-            echo "${var#*: }" >> $GITHUB_ENV
+            # echo "$var" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
+            echo "Export variable '$key'"
+            echo "$key<<EOF" >> $GITHUB_ENV
+            echo "$value" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
           done
         else
@@ -126,7 +129,7 @@ jobs:
         fi
 
         if [[ -f "$GITHUB_SECRETS_LIST" ]]; then 
-          echo -e "\n#### Import secret values"
+          echo -e "\n#### Export secret values"
 
           for secret in $(cat "$GITHUB_SECRETS_LIST"); do
             var=''
@@ -140,10 +143,10 @@ jobs:
               exit 1
             fi
             
-            echo "Import '$var'"
             key=$(sed -r 's/(^|_)(\w)/\U\2/g' <<<"${secret,,}")
             key=$key value=$value yq -i '.github.[env(key)] = strenv(value)' "$WERF_VALUES_GITHUB"
             
+            echo "Export secret '$var' as '$key'"
             # echo "$key=$value" | tee -a $GITHUB_ENV
             echo "$key<<EOF" >> $GITHUB_ENV
             echo "$value" >> $GITHUB_ENV

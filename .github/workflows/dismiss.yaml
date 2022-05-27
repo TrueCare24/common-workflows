@@ -13,7 +13,7 @@ on:
         type: string        
       env_id:
         description: "Environment type like dev, stage or prod"
-        required: true
+        required: false
         type: string      
       deploy_id:
         description: "ID for namespace and helm release name"

@@ -11,6 +11,10 @@ on:
         description: "Path to helm and werf directories under {{ project_id }}"
         required: false
         type: string        
+      env_id:
+        description: "Environment type like dev, stage or prod"
+        required: true
+        type: string      
       deploy_id:
         description: "ID for namespace and helm release name"
         required: true

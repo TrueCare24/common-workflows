@@ -111,14 +111,14 @@ jobs:
           curl -sLo yq https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 && chmod +x yq
 
           echo -e "\n#### Export github variables"
-          echo "$values_github" | yq -o json | jq '{ github: .}' | yq -P > "$WERF_VALUES_GITHUB"
+          json=$(echo "$values_github" | yq -o json)
+          echo "$json" | jq '{ github: .}' | yq -P > "$WERF_VALUES_GITHUB"
 
-          for var in $(echo "$values_github"); do
-            echo "Process '$var'"
-            key=${var%%: *}
-            value=${var#*: }
+          for key in $(echo "$json" | jq -r 'keys[]'); do
+            echo "Processing '$key'"
+            value=$(echo "$json" | jq --arg key $key '.[$key]')
 
-            # echo "$var" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
+            # echo "$key" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
             echo "Export variable '$key'"
             echo "$key<<EOF" >> $GITHUB_ENV
             echo "$value" >> $GITHUB_ENV
@@ -132,6 +132,7 @@ jobs:
           echo -e "\n#### Export secret values"
 
           for secret in $(cat "$GITHUB_SECRETS_LIST"); do
+            echo "Processing '$secret'"
             var=''
             for var in "$secret" "${env_id^^}_${secret}"; do
               value=$(echo "${SECRETS_CONTEXT}" | jq -r --arg var "$var" '.[$var]')

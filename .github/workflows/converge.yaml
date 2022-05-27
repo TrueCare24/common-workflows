@@ -110,11 +110,12 @@ jobs:
           echo -e "\n#### Install yq"
           curl -sLo yq https://github.com/mikefarah/yq/releases/download/v4.2.0/yq_linux_amd64 && chmod +x yq
 
-          echo -e "\n#### Import github values"
+          echo -e "\n#### Export github values"
           echo "$values_github" | yq -o json | jq '{ github: .}' | yq -P > "$WERF_VALUES_GITHUB"
 
           echo -e "\n#### Export github variables"
           for var in "$values_github"; do
+            echo "Process '$var'"
             key=${var%%: *}
             value=${var#*: }
 
@@ -157,7 +158,7 @@ jobs:
       env:
         SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}
         env_id: ${{ inputs.env_id }}
-        values_github: ${{ inputs.values }}
+        values_github: "${{ inputs.values }}"
 
     - name: "Runtime values"
       run: |

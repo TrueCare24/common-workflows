@@ -118,7 +118,6 @@ jobs:
             echo "Processing '$key'"
             value=$(echo "$json" | jq --arg key $key '.[$key]')
 
-            # echo "$key" | sed -r 's/: /=/' | tee -a $GITHUB_ENV
             echo "Export variable '$key'"
             echo "$key<<EOF" >> $GITHUB_ENV
             echo "$value" >> $GITHUB_ENV
@@ -148,7 +147,6 @@ jobs:
             key=$key value=$value yq -i '.github.[env(key)] = strenv(value)' "$WERF_VALUES_GITHUB"
             
             echo "Export secret '$var' as '$key'"
-            # echo "$key=$value" | tee -a $GITHUB_ENV
             echo "$key<<EOF" >> $GITHUB_ENV
             echo "$value" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV

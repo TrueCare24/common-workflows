@@ -60,7 +60,7 @@ env:
   WERF_VALUES_RUNTIME: ${{ format ('{0}/{1}/helm/values-runtime.yaml', inputs.project_id, inputs.project_path) }}
   GITHUB_SECRETS_LIST: ${{ format ('{0}/{1}/werf/github.secrets', inputs.project_id, inputs.project_path) }}
   CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
-  WERF_VALUES_SECRET: werf-values
+  RUNTIME_VALUES_SECRET: werf-values: werf-values
   WERF_TIMEOUT: 900
   NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id) }}
 
@@ -188,7 +188,7 @@ jobs:
       run: |
         kubeconfig=$(mktemp)
         echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
-        kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $WERF_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" 2> /dev/null || true | base64 -d > "$WERF_VALUES_RUNTIME"
+        kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $RUNTIME_VALUES_SECRET: werf-values -o jsonpath="{.data['values\.yaml']}" 2> /dev/null || true | base64 -d > "$WERF_VALUES_RUNTIME"
 
         if [[ -z "$(cat $WERF_VALUES_RUNTIME)" ]]; then echo "Skip runtime values"; fi
       shell: bash

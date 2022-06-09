@@ -90,7 +90,6 @@ jobs:
 
     - name: "Map values from app"
       run: |
-        cd $HELM_DIR
         APP_HELM_DIR=$(echo $HELM_DIR | sed -r 's/^(.+)-prereq/\1/')
 
         if [[ "$APP_HELM_DIR" == "$HELM_DIR" ]]; then 
@@ -98,6 +97,8 @@ jobs:
           exit 0
         fi
 
+        APP_HELM_DIR=$(pwd)/${APP_HELM_DIR}
+        cd $HELM_DIR
         for file in $(ls $APP_HELM_DIR/values*.yaml); do
           filename=${file##*/}
           

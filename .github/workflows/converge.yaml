@@ -1,4 +1,4 @@
-name: "[WORKFLOW CALL] Converge project v1"
+name: "[WORKFLOW CALL] Converge project"
 
 on:
   workflow_call:
@@ -59,9 +59,12 @@ env:
   WERF_VALUES_GITHUB: ${{ format ('{0}/{1}/helm/values-github.yaml', inputs.project_id, inputs.project_path) }}
   WERF_VALUES_RUNTIME: ${{ format ('{0}/{1}/helm/values-runtime.yaml', inputs.project_id, inputs.project_path) }}
   GITHUB_SECRETS_LIST: ${{ format ('{0}/{1}/werf/github.secrets', inputs.project_id, inputs.project_path) }}
-  CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
+  # CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
+  CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/CDC-549/charts
+  WERF_VALUES_SECRET: werf-values
   WERF_TIMEOUT: 900
-  
+  NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id) }}
+
 jobs:
   common_converge:
     name: "Converge project"
@@ -85,6 +88,29 @@ jobs:
       if: ${{ inputs.branch_id == '' }}
       with:
         fetch-depth: 0
+
+    - name: "Map values from app"
+      run: |
+        cd $HELM_DIR
+        APP_HELM_DIR=${HELM_DIR%-prereq}
+
+        if [[ "$APP_HELM_DIR" == "$HELM_DIR" ]]; then 
+          echo "Current helm chart is not prereq"
+          exit 0
+        fi
+
+        for file in $(ls $APP_HELM_DIR/values*.yaml); do
+          filename=${file##*/}
+          
+          if [[ -f $filename ]]; then
+            echo "File '$filename' is exist"
+            continue
+          fi
+          
+          echo "Map '$filename' values"
+          ln -s $file
+        done
+      shell: bash
 
     - name: "Env values"
       run: |
@@ -160,19 +186,14 @@ jobs:
 
     - name: "Runtime values"
       run: |
-        if [[ -f "$WERF_VALUES_RUNTIME" ]]; then
-          kubeconfig=$(mktemp)
-          echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
-          kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $WERF_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" | base64 -d > "$WERF_VALUES_RUNTIME"
-        else 
-          echo "Skip runtime values"
-          echo "#" > "$WERF_VALUES_RUNTIME"
-        fi
+        kubeconfig=$(mktemp)
+        echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
+        kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $WERF_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" 2> /dev/null | base64 -d > "$WERF_VALUES_RUNTIME"
+
+        if [[ -z "$(cat $WERF_VALUES_RUNTIME)" ]]; then echo "Skip runtime values"; fi
       shell: bash
       env:
-        NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id, inputs.project_path) }}
         KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
-        WERF_VALUES_SECRET: werf-values
 
     - name: "Preparing helm environment"
       run: |

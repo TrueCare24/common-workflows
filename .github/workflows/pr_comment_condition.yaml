@@ -1,4 +1,4 @@
-name: "[WORKFLOW CALL] PR comment with condition v1"
+name: "[WORKFLOW CALL] PR comment with condition"
 
 on:
   workflow_call:

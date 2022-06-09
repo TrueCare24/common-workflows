@@ -1,4 +1,4 @@
-name: "[WORKFLOW CALL] Setup variables v2"
+name: "[WORKFLOW CALL] Setup variables"
 
 on:
   workflow_call:

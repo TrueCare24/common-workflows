@@ -107,8 +107,8 @@ jobs:
             continue
           fi
           
-          echo "Map '$filename' values"
-          ln -s $file
+          echo "Copy '$filename' values"
+          cp $file ./
         done
       shell: bash
 

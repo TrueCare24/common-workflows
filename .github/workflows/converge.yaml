@@ -188,7 +188,7 @@ jobs:
       run: |
         kubeconfig=$(mktemp)
         echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
-        kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $RUNTIME_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" 2> /dev/null || true | base64 -d > "$WERF_VALUES_RUNTIME"
+        ( kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $RUNTIME_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" 2> /dev/null || true ) | base64 -d > "$WERF_VALUES_RUNTIME"
 
         if [[ -z "$(cat $WERF_VALUES_RUNTIME)" ]]; then echo "Skip runtime values"; fi
       shell: bash

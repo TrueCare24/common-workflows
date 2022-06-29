@@ -16,6 +16,9 @@ on:
       values_id:
         description: "Helm values file name ID in format values-${values_id}.yaml"
         value: ${{ jobs.common_setup_vars.outputs.values_id }}
+      production_like: 
+        description: "Production like flag"
+        value: ${{ jobs.common_setup_vars.outputs.production_like }}
 
     inputs:
       env_id:     
@@ -90,6 +93,7 @@ jobs:
         echo "::set-output name=env_id_upper::${env_id_upper}"
         echo "::set-output name=deploy_id::${deploy_id}"       
         echo "::set-output name=values_id::${values_id}"
+        echo "::set-output name=production_like::${production_like}"
       env:
         env_id: ${{ inputs.env_id }}
         deploy_id: ${{ inputs.deploy_id }}

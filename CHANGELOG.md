@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2022-07-05
+### Fixed
+* Mapping values files into prereq chart
+
 ## [0.5.1] - 2022-07-04
 ### Changed
 * The version of the `yq` used has been changed to the `latest`

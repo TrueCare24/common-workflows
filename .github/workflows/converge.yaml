@@ -90,7 +90,7 @@ jobs:
 
     - name: "Map values from app"
       run: |
-        APP_HELM_DIR=$(echo $HELM_DIR | sed -r 's/^(.+)-prereq/\1/')
+        APP_HELM_DIR=$(echo $HELM_DIR | sed -r 's/^(.+)-prereq(.*)/\1\2/')
 
         if [[ "$APP_HELM_DIR" == "$HELM_DIR" ]]; then 
           echo "Current helm chart is not prereq"

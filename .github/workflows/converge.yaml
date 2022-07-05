@@ -247,4 +247,4 @@ jobs:
       with: 
         kube-config-base64-data: ${{ env.kubeconfig_base64_data }}
         env: ${{ inputs.deploy_id }}
-        version: v1.2.80
+        # version: v1.2.80

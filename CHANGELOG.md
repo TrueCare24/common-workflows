@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+* Render print when debug
 
 ## [0.5.2] - 2022-07-05
 ### Fixed

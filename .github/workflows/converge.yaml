@@ -71,9 +71,9 @@ jobs:
     steps:      
 
     - name: "Inputs"
+      shell: bash
       run: |
         echo "${{ toJSON(inputs) }}"
-      shell: bash
 
     - name: "Checkout code with ref ${{ inputs.branch_id }}"
       uses: actions/checkout@v2
@@ -89,6 +89,7 @@ jobs:
         fetch-depth: 0
 
     - name: "Map values from app"
+      shell: bash
       run: |
         APP_HELM_DIR=$(echo $HELM_DIR | sed -r 's/^(.+)-prereq(.*)/\1\2/')
 
@@ -110,9 +111,12 @@ jobs:
           echo "Copy '$filename' values"
           cp $file ./
         done
-      shell: bash
 
     - name: "Env values"
+      shell: bash
+      env:
+        env_id: ${{ inputs.env_id }}
+        values_id: ${{ inputs.values_id }}
       run: |
         id=$env_id
         if [[ -n "$values_id" ]]; then
@@ -125,12 +129,13 @@ jobs:
           echo "File '$WERF_VALUES_ENV' not found"
           exit 1
         fi
-      shell: bash
-      env:
-        env_id: ${{ inputs.env_id }}
-        values_id: ${{ inputs.values_id }}
 
     - name: "Github values"
+      shell: bash
+      env:
+        SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}
+        env_id: ${{ inputs.env_id }}
+        values_github: "${{ inputs.values }}"
       run: |
         if [[ -n "${values_github}" ]]; then
           echo -e "\n#### Install yq"
@@ -178,24 +183,22 @@ jobs:
             echo "EOF" >> $GITHUB_ENV
           done
         fi
-      shell: bash
-      env:
-        SECRETS_CONTEXT: ${{ secrets.SECRETS_CONTEXT }}
-        env_id: ${{ inputs.env_id }}
-        values_github: "${{ inputs.values }}"
 
     - name: "Runtime values"
+      shell: bash
+      env:
+        KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
       run: |
         kubeconfig=$(mktemp)
         echo "${KUBE_CONFIG_DATA}" > "$kubeconfig"
         ( kubectl get secret --kubeconfig="${kubeconfig}" -n $NS $RUNTIME_VALUES_SECRET -o jsonpath="{.data['values\.yaml']}" 2> /dev/null || true ) | base64 -d > "$WERF_VALUES_RUNTIME"
 
         if [[ -z "$(cat $WERF_VALUES_RUNTIME)" ]]; then echo "Skip runtime values"; fi
-      shell: bash
-      env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
 
     - name: "Preparing helm environment"
+      shell: bash
+      env: 
+        GITHUB_TOKEN: ${{ secrets.REPOS_GITHUB_TOKEN }}
       run: |
         if [[ -n "$GITHUB_TOKEN" ]]; then 
           echo -e "\n#### Add tc24 chart repo"
@@ -223,28 +226,54 @@ jobs:
 
         echo -e "\n#### Helm repo list"
         helm repo list || true
-      shell: bash
-      env: 
-        GITHUB_TOKEN: ${{ secrets.REPOS_GITHUB_TOKEN }}
 
-    - name: "Login to Harbor"
-      uses: docker/login-action@v1
-      with:
-        registry: ${{ secrets.HARBOR_HOST }}
-        username: ${{ secrets.HARBOR_USERNAME }}
-        password: ${{ secrets.HARBOR_PASSWORD }}
+    # - name: "Login to Harbor"
+    #   uses: docker/login-action@v1
+    #   with:
+    #     registry: ${{ secrets.HARBOR_HOST }}
+    #     username: ${{ secrets.HARBOR_USERNAME }}
+    #     password: ${{ secrets.HARBOR_PASSWORD }}
     
-    - name: "Base64 kubeconfig"
+    # - name: "Base64 kubeconfig"
+    #   run: |
+    #     echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
+    #     echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
+    #     echo 'EOF' >> $GITHUB_ENV
+
+    # - name: "Converge project"
+    #   uses: werf/actions/converge@v1.2
+    #   env:
+    #     github_token: ${{ secrets.REPOS_GITHUB_TOKEN }}        
+    #   with: 
+    #     kube-config-base64-data: ${{ env.kubeconfig_base64_data }}
+    #     env: ${{ inputs.deploy_id }}
+    #     # version: v1.2.80
+
+    - name: "Werf install"
+      uses: werf/actions/install@v1.2
+      # with:
+      #   channel: stable
+      #   version: v1.2.122
+
+    - name: "Render templates"
+      shell: bash
+      if: ${{ inputs.debug }}
+      env:
+        PROJECT_ID: ${{ inputs.project_id }}
       run: |
-        echo 'kubeconfig_base64_data<<EOF' >> $GITHUB_ENV
-        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 >> $GITHUB_ENV
-        echo 'EOF' >> $GITHUB_ENV
+        werf helm template --debug $PROJECT_ID $HELM_DIR --set global.tc24.debug=true
 
     - name: "Converge project"
-      uses: werf/actions/converge@v1.2
-      env:
-        github_token: ${{ secrets.REPOS_GITHUB_TOKEN }}        
-      with: 
-        kube-config-base64-data: ${{ env.kubeconfig_base64_data }}
-        env: ${{ inputs.deploy_id }}
-        # version: v1.2.80
+      shell: bash
+      env: 
+        KUBE_CONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+        WERF_KUBECONFIG: /tmp/_kc.tmp
+        WERF_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+        WERF_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+        WERF_ENV: ${{ inputs.deploy_id }}
+        REGISTRY: ${{ secrets.HARBOR_HOST }}
+      run: |
+        echo "$KUBE_CONFIG_DATA" > "${WERF_KUBECONFIG}"
+
+        werf cr login $REGISTRY
+        werf converge

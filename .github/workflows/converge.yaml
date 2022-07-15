@@ -61,6 +61,10 @@ env:
   GITHUB_SECRETS_LIST: ${{ format ('{0}/werf/github.secrets', inputs.project_path) }}
   CHART_REPO: raw.githubusercontent.com/TrueCare24/k8s-charts/develop/charts
   RUNTIME_VALUES_SECRET: werf-values
+  WERF_LOG_COLOR_MODE: on
+  WERF_LOG_PROJECT_DIR: 1
+  WERF_ENABLE_PROCESS_EXTERMINATOR: 1
+  WERF_LOG_TERMINAL_WIDTH: 130
   WERF_TIMEOUT: 900
   NS: ${{ format ('{0}-{1}', inputs.project_id, inputs.deploy_id) }}
 

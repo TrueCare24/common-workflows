@@ -265,7 +265,7 @@ jobs:
       env:
         PROJECT_ID: ${{ inputs.project_id }}
       run: |
-        werf helm template --debug $PROJECT_ID $HELM_DIR --set global.tc24.debug=true
+        werf helm template --debug $PROJECT_ID $HELM_DIR --set global.tc24.debug=true -f $WERF_VALUES_ENV -f $WERF_VALUES_GITHUB -f $WERF_VALUES_RUNTIME
 
     - name: "Converge project"
       shell: bash

@@ -92,28 +92,19 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: "Map values from app"
+    - name: "Map values files"
       shell: bash
       run: |
-        APP_HELM_DIR=$(echo $HELM_DIR | sed -r 's/^(.+)-prereq(.*)/\1\2/')
-
-        if [[ "$APP_HELM_DIR" == "$HELM_DIR" ]]; then 
-          echo "Current helm chart is not prereq"
-          exit 0
-        fi
-
-        APP_HELM_DIR=$(pwd)/${APP_HELM_DIR}
-        cd $HELM_DIR
-        for file in $(ls $APP_HELM_DIR/values*.yaml); do
+        for file in $(ls $HELM_DIR/../../values*.yaml); do
           filename=${file##*/}
           
-          if [[ -f $filename ]]; then
+          if [[ -f $HELM_DIR/$filename ]]; then
             echo "File '$filename' is exist"
             continue
           fi
           
           echo "Copy '$filename' values"
-          cp $file ./
+          cp $file $HELM_DIR/
         done
 
     - name: "Env values"
@@ -123,9 +114,9 @@ jobs:
         values_id: ${{ inputs.values_id }}
       run: |
         id=$env_id
-        if [[ -n "$values_id" ]]; then
-          id=$values_id
-        fi
+        if [[ "$id" == "dev" ]]; then id+="-preview"; fi
+        if [[ -n "$values_id" ]]; then id=$values_id; fi
+
         WERF_VALUES_ENV=$HELM_DIR/values-$id.yaml
         echo "WERF_VALUES_ENV=$WERF_VALUES_ENV" | tee -a $GITHUB_ENV
 

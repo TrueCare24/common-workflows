@@ -76,16 +76,14 @@ jobs:
         fi
 
         if [[ -z "$values_id" ]]; then
+          values_id=$env_id
           case "$env_id" in
-            prod)  
-              values_id=prod
-            ;;
+            prod) true ;;
             stage) 
-              values_id=stage
-              [[ "$deploy_id" != "stage" ]] && values_id+="-preview" 
+              if [[ "$production_like" == "true" ]]; then values_id+="-prod";
+              elif [[ "$deploy_id" != "stage" ]]; then values_id+="-preview"; fi
             ;;
             dev)   
-              values_id=dev
               if [[ "$production_like" == "true" ]]; then values_id+="-prod"; else values_id+="-preview"; fi
             ;;
           esac

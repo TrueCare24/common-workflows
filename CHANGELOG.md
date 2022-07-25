@@ -5,6 +5,7 @@
 ### [0.6.0] - 2022-07-25
 ### Added
 * Chart render print when debug
+* Support production like option to stage
 
 ### Changed
 * Value files must be placed in `.deploy` directory now
